@@ -1,0 +1,11 @@
+[project]
+name = "trafficai-vision"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "lapx>=0.9.4",
+    "opencv-python-headless>=4.13.0.92",
+    "ultralytics>=8.4.67",
+]
