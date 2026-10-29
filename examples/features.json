@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "image_size": [1280, 720],
+  "features": [
+    {"name": "approach_a", "kind": "lane", "points": [[400, 300], [550, 300], [650, 650], [300, 650]]},
+    {"name": "exit_b", "kind": "lane", "points": [[700, 200], [1000, 200], [1000, 350], [700, 350]]},
+    {"name": "crosswalk_a", "kind": "crosswalk", "points": [[320, 500], [620, 500], [640, 550], [300, 550]]},
+    {"name": "stop_a", "kind": "stop_line", "points": [[350, 480], [600, 480]]}
+  ],
+  "permitted_movements": [{"from": "approach_a", "to": "exit_b"}]
+}
