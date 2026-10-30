@@ -87,5 +87,57 @@ this integration fixture validate arithmetic and plumbing, not real detector acc
   coexist. File processing passed, but native camera capture is unsupported. The old
   overlapping cv2 install required `uv sync --reinstall-package opencv-python`; a fresh
   environment installed without that repair.
-- Advanced depth, conflict, red-light and prohibited-turn analysis are intentionally
-  unavailable. Follow-up validation work is scoped in `research.md`.
+- At baseline validation, automatic depth, conflict, red-light and prohibited-turn
+  analysis were unavailable. The AI extension below now implements experimental
+  depth calibration; conflict and violation categories remain unavailable.
+
+
+## Experimental AI extension — 2026-10-30 (v0.3.0)
+
+- **62 tests passed**, both with AI dependencies installed (1.68 s) and in the
+  separate core-only environment without Transformers (1.72 s). New tests cover
+  independently specified pinhole/plane geometry, physical speed, restricted mask
+  holes, invalid model outputs, inconsistent scale/normals/focal lengths, nonplanar
+  surfaces, camera displacement, saved geometry, rejected replacement preservation,
+  unavailable models retaining tracking, and provenance through measurements/events.
+- Ruff, format, lock consistency, dependency consistency, wheel/sdist build and diff
+  whitespace checks passed. CI includes an optional-model API import check without
+  downloading weights. Remote CI has not been executed.
+- Actual Depth Pro and SegFormer weights downloaded successfully (1.904 GB + 14.96 MB).
+  MPS inference completed on the Apple M5/16 GB machine, including three samples
+  at 0, 1 and 2 seconds and the complete 376-frame trafficshort.mp4 analysis.
+- One-command `analyze --auto-calibrate` completed with 77 track IDs, 40 IDs having
+  at least one estimated speed, 1,786 speed rows, 646 acceleration rows and one
+  candidate event. This is **successful execution, not validated physical accuracy**.
+- The estimated camera-plane distance was about 4.39 m; variation across samples was
+  8.4%, predicted focal-length variation 1.0%, normal variation 0.8 degrees. These are
+  model estimates/internal consistency measures, not ground truth or accuracy bounds.
+- The accepted static road mask covered about 42% of the image. No runtime view check
+  failed in that clip. Annotated output shows an experimental banner and AI labels;
+  CSV/event provenance identifies the unvalidated scale/geometry. The resulting
+  annotated frame was visually inspected.
+- Standalone `auto-calibrate` also succeeded and saved
+  `data/calibrations/trafficshort-ai.json` (ignored local artifact), with preview and
+  diagnostics. The complete saved calibration can be used without the AI extra.
+- AI depth inference on CPU/CUDA has not been exercised; CUDA is unavailable here.
+  Field scale accuracy, event validity, unseen camera/lighting conditions and
+  long-duration camera-drift behavior remain unvalidated. No threshold was loosened
+  to force the real sample to pass. Fixed priors and thresholds are documented in
+  `ai-calibration.md`.
+
+Reproduction commands:
+
+```bash
+uv sync --locked --extra ai --python 3.12
+uv run --extra ai trafficai analyze data/videos/trafficshort.mp4 \
+  --auto-calibrate --ai-device mps --ai-offline --model ./yolo26n.pt \
+  --device mps --output data/ai-validation/integrated
+uv run --extra ai trafficai auto-calibrate data/videos/trafficshort.mp4 \
+  --ai-device mps --ai-offline --output data/calibrations/trafficshort-ai.json
+uv run trafficai analyze data/videos/trafficshort.mp4 \
+  --calibration data/calibrations/trafficshort-ai.json --model ./yolo26n.pt \
+  --device mps --output data/ai-validation/final-reuse
+```
+
+For the standalone calibration command, choose another output name if that file
+already exists. Model caches, footage, calibration outputs and runs remain outside Git.

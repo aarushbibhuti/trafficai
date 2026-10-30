@@ -87,7 +87,7 @@ class Exports:
                 measurement.effective_time,
                 measurement.acceleration_time,
                 measurement.support_start,
-                "|".join(measurement.flags),
+                "|".join(measurement.flags + measurement.provenance_flags),
                 json.dumps(self.features.zones(detection.contact)),
             ]
         )
@@ -106,7 +106,7 @@ class Exports:
         self.rows += 1
         self.measured_rows += measured
         self.acceleration_rows += int(measurement.acceleration_mps2 is not None)
-        self.flags.update(measurement.flags)
+        self.flags.update(measurement.flags + measurement.provenance_flags)
         if self.rows % 500 == 0:
             self.db.commit()
             self.file.flush()

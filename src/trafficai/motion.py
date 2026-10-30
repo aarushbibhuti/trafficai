@@ -18,6 +18,7 @@ class Measurement:
     position: tuple[float, float] | None = None
     support_start: float | None = None
     acceleration_time: float | None = None
+    provenance_flags: list[str] = field(default_factory=list)
 
 
 @dataclass

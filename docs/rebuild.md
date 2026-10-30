@@ -45,3 +45,15 @@ motion/event histories remain in RAM. Clips are generated one at a time after an
 
 Manual features are overlays and spatial grouping, not inferred rules. Red-light,
 prohibited-turn and conflict/near-miss judgments remain unavailable. No identity tools.
+
+
+## Optional AI extension (2026-10-30)
+
+`ai_models` lazily loads pinned local depth/road models through the optional `ai`
+extra. `auto_calibration` samples frames, fits/checks plane geometry, and returns an
+explicit accepted/rejected result. `plane_calibration` provides schema-2 persistence,
+masked projection and camera-view checks alongside the unchanged manual schema.
+The existing pipeline accepts saved geometry or performs calibration before loading
+vehicle tracking. AI provenance is separate from temporal validity, so valid but
+unvalidated estimates can produce explicitly labeled candidate events. Rejected
+geometry retains tracking without metric outputs. See `ai-calibration.md` for details.

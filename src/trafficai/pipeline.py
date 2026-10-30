@@ -2,7 +2,6 @@
 
 import platform
 import signal
-from dataclasses import asdict
 from datetime import UTC, datetime
 from importlib.metadata import version
 from pathlib import Path
@@ -34,8 +33,14 @@ def analyze(
     features_path=None,
     allow_calibration_reuse=False,
     detector=None,
+    auto_options=None,
+    ai_predictor=None,
 ):
     config.validate()
+    if calibration_path and auto_options is not None:
+        raise ValueError("Choose saved calibration or automatic calibration, not both")
+    if auto_options is not None:
+        auto_options.validate()
     if config.preview:
         from .preview import require_display
 
@@ -52,10 +57,58 @@ def analyze(
             if features_path
             else Features()
         )
-        backend = detector if detector is not None else YoloTracker(config)
         run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%S") + "_" + uuid4().hex[:10]
         directory = Path(output) / f"run_{run_id}"
         directory.mkdir(parents=True, exist_ok=False)
+        print(f"Run output: {directory}", flush=True)
+        auto_diagnostics = None
+        if auto_options is not None:
+            from .auto_calibration import build_auto_calibration
+
+            write_json(
+                directory / "run.json",
+                {"status": "running", "phase": "ai_calibration", "frames": 0, "run_id": run_id},
+            )
+            try:
+                result = build_auto_calibration(
+                    video,
+                    auto_options,
+                    predictor=ai_predictor,
+                    progress=lambda text: print(text, flush=True),
+                )
+            except KeyboardInterrupt:
+                write_json(
+                    directory / "run.json",
+                    {"status": "cancelled", "phase": "ai_calibration", "frames": 0},
+                )
+                return directory
+            calibration, auto_diagnostics = result.calibration, result.diagnostics
+            write_json(directory / "auto_calibration.json", auto_diagnostics)
+            if result.preview is not None:
+                import cv2
+
+                success, encoded = cv2.imencode(".png", result.preview)
+                if not success:
+                    raise ValueError("Cannot encode AI calibration preview")
+                (directory / "calibration.preview.png").write_bytes(encoded.tobytes())
+        # Release depth-model resources before loading the vehicle detector.
+        try:
+            backend = detector if detector is not None else YoloTracker(config)
+        except (Exception, KeyboardInterrupt) as exc:
+            write_json(
+                directory / "run.json",
+                {
+                    "status": "cancelled" if isinstance(exc, KeyboardInterrupt) else "failed",
+                    "phase": "detector_initialization",
+                    "frames": 0,
+                    "error": str(exc),
+                    "auto_calibration": auto_diagnostics,
+                },
+            )
+            raise
+        calibration_flags = getattr(calibration, "measurement_flags", [])
+        if calibration:
+            calibration.save(directory / "calibration.json")
         warnings = [
             "No field measurement accuracy validation has been performed for this run.",
             "Bottom-center boxes approximate tire contact; occlusion, shadows, camera motion, "
@@ -69,6 +122,13 @@ def analyze(
             warnings.append(
                 "Calibration reused by explicit operator assertion of unchanged camera view."
             )
+        if calibration_flags:
+            warnings.append(
+                "EXPERIMENTAL: AI-estimated scale and geometry are unvalidated. "
+                "Numerical consistency is not a physical accuracy guarantee."
+            )
+        if auto_diagnostics and calibration is None:
+            warnings.append("AI calibration rejected: " + auto_diagnostics["reason"])
         metadata = {
             "schema_version": 1,
             "run_id": run_id,
@@ -80,7 +140,8 @@ def analyze(
             "config": config.as_dict(),
             "model": backend.info,
             "video": reader.info,
-            "calibration": asdict(calibration) if calibration else None,
+            "calibration": calibration.metadata() if calibration else None,
+            "auto_calibration": auto_diagnostics,
             "features": features.data,
             "status": "running",
             "frames": 0,
@@ -98,7 +159,8 @@ def analyze(
             metadata["unavailable_categories"]["motion_events"] = "Metric calibration missing"
         write_json(directory / "run.json", metadata)
         exports = Exports(directory, config, features)
-        motion, events = MotionEstimator(config), EventDetector(config)
+        motion, events = MotionEstimator(config), EventDetector(config, calibration_flags)
+        view_rejected, last_view_check = False, -1.0
         error = None
         try:
             with VideoWriter(
@@ -112,6 +174,21 @@ def analyze(
                         if not success:
                             raise ValueError("Cannot encode scene reference image")
                         (directory / "scene.jpg").write_bytes(scene.tobytes())
+                    if calibration_flags and not view_rejected and timestamp - last_view_check >= 1:
+                        from .plane_calibration import GeometryRejected
+
+                        last_view_check = timestamp
+                        try:
+                            calibration.check_view(frame)
+                        except GeometryRejected as exc:
+                            view_rejected = True  # Latch: never silently resume a moved camera.
+                            metadata["calibration_runtime_rejection"] = {
+                                "timestamp_seconds": timestamp,
+                                "reason": str(exc),
+                            }
+                            metadata["warnings"].append(
+                                f"AI calibration invalidated at {timestamp:.2f}s: {exc}"
+                            )
                     for expired in motion.expire(timestamp):
                         for event in events.finish(expired, "track_expired"):
                             exports.event(event)
@@ -121,14 +198,25 @@ def analyze(
                         exports.event(event)
                     observations = []
                     for detection in detections:
-                        point = calibration.project(detection.contact) if calibration else None
+                        point = (
+                            calibration.project(detection.contact)
+                            if calibration and not view_rejected
+                            else None
+                        )
                         measurement = motion.update(
                             detection.track_id,
                             timestamp,
                             index,
                             point,
-                            "outside_road_region" if calibration else "uncalibrated",
+                            "ai_camera_view_unreliable"
+                            if view_rejected
+                            else "outside_road_region"
+                            if calibration
+                            else "ai_calibration_rejected"
+                            if auto_diagnostics
+                            else "uncalibrated",
                         )
+                        measurement.provenance_flags = calibration_flags
                         for event in events.update(
                             detection.track_id, timestamp, measurement, detection.contact
                         ):

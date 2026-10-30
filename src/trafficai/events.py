@@ -26,8 +26,9 @@ class Candidate:
 
 
 class EventDetector:
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, calibration_flags=None):
         self.config = config
+        self.calibration_flags = calibration_flags or ["manual_calibration"]
         self.active: dict[int, Candidate] = {}
 
     def finish(self, track_id, reason):
@@ -100,7 +101,7 @@ class EventDetector:
                     measurement.position,
                     measurement.support_start,
                     timestamp,
-                    ["smoothed_estimate", "manual_calibration"],
+                    ["smoothed_estimate", *self.calibration_flags],
                     timestamp,
                 )
         return emitted

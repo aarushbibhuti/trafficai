@@ -1,16 +1,17 @@
 # TrafficAI
 
-TrafficAI tracks vehicles in intersection footage, estimates road-plane speed when
-valid manual calibration is supplied, and exports **candidate** sudden braking and
-acceleration events for human review. It is an infrastructure analysis tool for urban
+TrafficAI tracks vehicles in intersection footage, estimates road-plane speed using
+manual calibration or experimental AI geometry, and exports **candidate** sudden
+braking and acceleration events for human review. It is an infrastructure analysis tool for urban
 planners and community advocates, not a policing or driver identification system.
 
 Implemented: YOLO vehicle detection, persistent ByteTrack IDs, calibrated planar
 motion, timestamp-aware event screening, annotated video, contextual event clips,
 CSV/JSON exports and an HTML report with location/time summaries and events per
 tracked vehicle. Without calibration, tracking works and metric speed is explicitly
-unavailable. Red-light, prohibited-turn, conflict and automatic depth analysis are
-not implemented; reports mark those categories unavailable.
+unavailable. An optional **experimental AI calibration** mode estimates road scale
+without entered dimensions; all resulting measurements are labeled unvalidated.
+Red-light, prohibited-turn and conflict analysis remain unavailable.
 
 ## Install
 
@@ -30,7 +31,8 @@ checkout containing these changes, start with `uv sync`. Standard installation i
 also supported with `python3.12 -m pip install .`; uv's lock gives reproducible versions.
 On minimal Debian/Ubuntu, install `libgl1 libglib2.0-0` for the OpenCV wheel. CPU works
 without a GPU; use a compatible PyTorch installation for CUDA. Model inference adds
-substantial dependencies, but calibration and tests never download model weights.
+substantial dependencies. Manual calibration and automated tests do not download
+weights; experimental AI calibration downloads its models on first use.
 
 Only **opencv-python** is declared; do not also install opencv-python-headless. If
 upgrading the old environment breaks `import cv2`, repair overlapping old wheel files:
@@ -81,7 +83,68 @@ that ByteTrack would otherwise use. Ctrl-C/SIGTERM or Q in preview finalizes par
 outputs when possible; the metadata identifies cancellation. No GUI calls occur
 without `--preview` or calibration's `--interactive` option.
 
-## Calibrate and inspect
+## Experimental AI calibration (no measured dimensions required)
+
+On an Apple Silicon Mac, run:
+
+```bash
+uv sync --locked --python 3.12 --extra ai
+uv run --extra ai trafficai analyze data/videos/trafficshort.mp4 \
+  --auto-calibrate --ai-device mps --device mps \
+  --model ./yolo26n.pt --preview --output runs
+```
+
+Use `--ai-device auto --device auto` for automatic device selection, or `cpu` for
+CPU execution. Depth inference can be slower and use substantially more memory than
+vehicle tracking. The preview opens **after calibration finishes**; the terminal
+prints progress during calibration. Omit `--preview` for headless processing.
+
+This mode runs Apple's Depth Pro metric-depth/focal-length model and a small
+Cityscapes road-segmentation model locally on three frames, normally at 0, 1 and 2
+seconds. It excludes non-road pixels, fits a plane, checks consistency between
+frames, and freezes **one** mapping for the whole analysis. It does not differentiate
+fresh depth predictions frame by frame. The first use downloads approximately
+1.92 GB of weights to the Hugging Face cache; videos are not uploaded. Add
+`--ai-offline` to require cached weights. Models are pinned to explicit revisions.
+
+Numbers are labeled **AI estimate** in the video, with an experimental banner and
+`ai_scale_unvalidated` / `ai_geometry_unvalidated` flags in CSV and events. Internal
+consistency checks do **not** establish real-world accuracy. Reported speeds and
+braking events may still be wrong, including a consistent scale error across all
+frames. The selected segmentation weights have research/evaluation-only terms;
+see [model details, licenses and limitations](docs/ai-calibration.md).
+
+If geometry is rejected, `analyze --auto-calibrate` continues tracking with speed
+unavailable and records the reason in `auto_calibration.json`, `run.json` and the
+report. It never substitutes a standard lane width. During analysis, a failed camera
+view check disables further metric measurements for the remainder of that run.
+
+To calibrate once and reuse the saved mapping:
+
+```bash
+uv run --extra ai trafficai auto-calibrate data/videos/trafficshort.mp4 \
+  --ai-device mps --output data/calibrations/trafficshort-ai.json
+
+# Saved geometry needs no depth inference or ai extra:
+uv run trafficai analyze data/videos/trafficshort.mp4 \
+  --calibration data/calibrations/trafficshort-ai.json \
+  --model ./yolo26n.pt --device mps --preview --output runs
+```
+
+Inspect the generated `.preview.png` and `.diagnostics.json`. Existing output names
+are protected unless `--overwrite` is supplied. A rejected replacement preserves any
+existing calibration and reports that fact. The standalone `auto-calibrate` command
+returns a nonzero exit code on rejection. `--ai-at`, `--ai-interval`, and `--ai-samples`
+select another sample window (at least three frames). Do not repeatedly tune sample
+windows merely to force acceptance of an unstable scene.
+
+An automatically calibrated analysis also saves `calibration.json` and
+`calibration.preview.png` inside its run directory. Reuse for another recording
+requires `--allow-calibration-reuse`, identical resolution, and a camera-view check.
+Manual calibration remains the baseline when trustworthy physical dimensions are
+available. AI calibration files cannot be edited as manual rectangles.
+
+## Manual calibration
 
 Use a **stationary camera and a genuinely planar road rectangle with known dimensions**.
 Pick four ground points around that rectangle in order: P1, P2, P3, P4 around its
@@ -163,6 +226,8 @@ Each run creates a fresh `runs/run_<UTC>_<suffix>/` directory:
   processing status, missing-data flags and summary.
 - `report.html`, `scene.jpg`: readable evidence review and event-location grid.
 - `analysis.sqlite`: disk-backed aggregation and event storage.
+- `calibration.json`: saved mapping when calibration is present; AI runs also include
+  calibration diagnostics and a region preview.
 
 Open `report.html` in a browser or open the MP4s in a video player. Full schemas and
 flag meanings: [docs/output-schema.md](docs/output-schema.md).

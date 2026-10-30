@@ -28,6 +28,8 @@ def annotate(frame, observations, timestamp, calibration, features, units, activ
             f"#{detection.track_id} {detection.label} {detection.confidence:.2f} "
             f"{display_speed(measurement.speed_mps, units)}"
         )
+        if measurement.speed_mps is not None and measurement.provenance_flags:
+            label += " [AI estimate]"
         if confirmed:
             label += f" CANDIDATE {event.kind}"
         label_text(output, label, x1, y1 - 8, color)
@@ -39,4 +41,6 @@ def annotate(frame, observations, timestamp, calibration, features, units, activ
         24,
         (255, 255, 255),
     )
+    if getattr(calibration, "method", None) == "ai_depth_plane":
+        label_text(output, "EXPERIMENTAL: AI-estimated scale - unvalidated", 10, 45, (0, 190, 255))
     return output

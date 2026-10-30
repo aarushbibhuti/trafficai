@@ -20,6 +20,12 @@ def parser():
     run.add_argument("video", type=Path)
     run.add_argument("--output", type=Path, default=Path("runs"))
     run.add_argument("--calibration", type=Path)
+    run.add_argument(
+        "--auto-calibrate",
+        action="store_true",
+        help="Experimental AI scale estimation; requires the ai extra",
+    )
+    add_ai_arguments(run)
     run.add_argument("--features", type=Path)
     run.add_argument("--allow-calibration-reuse", action="store_true")
     for name in ("model", "device", "tracker", "units"):
@@ -73,7 +79,61 @@ def parser():
     cal.add_argument("--interactive", action="store_true", help="Click corners; U undo, R reset")
     cal.add_argument("--allow-calibration-reuse", action="store_true")
     cal.add_argument("--overwrite", action="store_true")
+    auto = sub.add_parser("auto-calibrate", help="Estimate and save experimental AI road geometry")
+    auto.add_argument("video", type=Path)
+    auto.add_argument("--output", type=Path, required=True)
+    auto.add_argument("--overwrite", action="store_true")
+    add_ai_arguments(auto)
     return root
+
+
+def add_ai_arguments(command):
+    command.add_argument("--ai-device", default="auto", help="Depth/road model device")
+    command.add_argument("--ai-samples", type=int, default=3)
+    command.add_argument("--ai-interval", type=float, default=1.0, help="Seconds between samples")
+    command.add_argument("--ai-at", type=float, default=0.0, help="First sample time in seconds")
+    command.add_argument("--ai-offline", action="store_true", help="Use only cached model files")
+
+
+def ai_options(args):
+    from .auto_calibration import AutoOptions
+
+    options = AutoOptions(
+        device=args.ai_device,
+        samples=args.ai_samples,
+        interval=args.ai_interval,
+        at=args.ai_at,
+        local_files_only=args.ai_offline,
+    )
+    options.validate()
+    return options
+
+
+def auto_calibrate(args):
+    from .auto_calibration import build_auto_calibration
+    from .exports import write_json
+
+    diagnostics_path = args.output.with_suffix(".diagnostics.json")
+    preview_path = args.output.with_suffix(".preview.png")
+    if not args.overwrite and any(
+        path.exists() for path in (args.output, diagnostics_path, preview_path)
+    ):
+        raise ValueError("AI calibration outputs already exist; use a new name or --overwrite")
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    result = build_auto_calibration(
+        args.video, ai_options(args), progress=lambda text: print(text, flush=True)
+    )
+    write_json(diagnostics_path, result.diagnostics)
+    if result.preview is not None:
+        save_image(preview_path, result.preview, args.overwrite)
+    if result.calibration is None:
+        preserved = " Existing calibration was preserved." if args.output.exists() else ""
+        raise ValueError(
+            f"AI calibration rejected: {result.diagnostics['reason']}. "
+            f"Diagnostics: {diagnostics_path}.{preserved}"
+        )
+    result.calibration.save(args.output, args.overwrite)
+    print(f"Saved experimental AI calibration: {args.output}. Inspect {preview_path}.")
 
 
 def get_frame(path, at):
@@ -101,6 +161,11 @@ def calibrate(args):
     frame, size = get_frame(args.video, args.at)
     source_hash = fingerprint(args.video)
     existing = Calibration.load(args.load) if args.load else None
+    if existing and getattr(existing, "method", None) == "ai_depth_plane":
+        raise ValueError(
+            "AI plane calibration cannot be edited as a measured rectangle. "
+            "Create a new manual calibration or rerun auto-calibrate"
+        )
     if existing:
         existing.check_compatibility(size, source_hash, args.allow_calibration_reuse)
     points = existing.source_points if existing else None
@@ -156,6 +221,12 @@ def main(argv=None):
                 "calibration",
                 "features",
                 "allow_calibration_reuse",
+                "auto_calibrate",
+                "ai_device",
+                "ai_samples",
+                "ai_interval",
+                "ai_at",
+                "ai_offline",
             ):
                 values.pop(key)
             values["clips"] = not values.pop("no_clips")
@@ -167,6 +238,7 @@ def main(argv=None):
                 args.calibration,
                 args.features,
                 args.allow_calibration_reuse,
+                auto_options=ai_options(args) if args.auto_calibrate else None,
             )
             print(f"Results: {directory}")
             status = json.loads((directory / "run.json").read_text())["status"]
@@ -177,6 +249,8 @@ def main(argv=None):
             print(args.output)
         elif args.command == "calibrate":
             calibrate(args)
+        elif args.command == "auto-calibrate":
+            auto_calibrate(args)
         return 0
     except KeyboardInterrupt:
         print("Cancelled", file=sys.stderr)

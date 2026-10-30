@@ -18,3 +18,7 @@ jobs:
       - run: uv run pytest -q
       - run: uv build
       - run: uv run trafficai --help
+      - name: Optional AI dependency compatibility (no model downloads)
+        run: |
+          uv sync --locked --extra ai
+          uv run --extra ai python -c "from transformers import DepthProForDepthEstimation, SegformerForSemanticSegmentation"

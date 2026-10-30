@@ -1,6 +1,6 @@
 # Approach selection and evidence
 
-Primary documentation checked 2026-10-29. These comparisons are architectural judgments,
+Baseline documentation checked 2026-10-29; AI extension checked 2026-10-30. These comparisons are architectural judgments,
 not TrafficAI accuracy or speed benchmarks. Published detection/tracking benchmarks do
 not validate this camera, its calibration, speed estimates, or candidate event accuracy.
 
@@ -10,7 +10,7 @@ not validate this camera, its calibration, speed estimates, or candidate event a
 | YOLO11 or larger YOLO26 weights | Useful controlled comparison; larger detector may improve recall, but camera-specific validation is required. | Same adapter/dependencies; larger weights generally require more compute and memory. | Same Ultralytics licensing considerations. | User-selectable compatible detection model; no accuracy superiority claim. |
 | BoT-SORT, appearance ReID disabled | Camera motion compensation and association can improve some sequences. It cannot make a fixed homography valid after camera movement. | Additional camera motion computation; no added embedding network in supported mode. | Available within existing Ultralytics dependency. Original BoT-SORT repo is MIT; integrated code terms still apply. | Optional `--tracker botsort.yaml`; recalibrate if camera geometry changes. ReID is rejected. |
 | Four-point measured homography | Metric scale comes from physical dimensions; valid only on the calibrated plane and inside the polygon. Sensitive to corner placement, camera distortion, and contact-point errors. | Negligible relative to detection; CPU only is sufficient. | Existing OpenCV dependency (Apache-2.0 for current OpenCV); no learned geometry model. | Implemented baseline. |
-| Depth Anything V2 | Relative depth alone cannot establish physical scale. Metric models have learned/domain-specific priors; traffic ground-plane scale needs independent validation. Temporal consistency and occlusion add problems. | Additional transformer inference, weights and memory; hardware-specific throughput must be measured. | Extra model/dependencies. Official repository distinguishes Apache-2.0 Small weights from CC-BY-NC-4.0 Base/Large/Giant; check each chosen checkpoint. | Experimental follow-up only. No depth runtime or automatic calibration claims. |
+| Depth Anything V2 | Relative depth alone cannot establish physical scale. Metric models have learned/domain-specific priors; traffic ground-plane scale needs independent validation. Temporal consistency and occlusion add problems. | Additional transformer inference, weights and memory; hardware-specific throughput must be measured. | Extra model/dependencies. Official repository distinguishes Apache-2.0 Small weights from CC-BY-NC-4.0 Base/Large/Giant; check each chosen checkpoint. | Not integrated. Depth Pro was selected for the separate experimental AI mode. |
 
 Sources:
 
@@ -44,6 +44,10 @@ Sources:
   weight-specific licenses, image-based depth. Neither establishes calibrated vehicle
   speed accuracy for this footage.
 
+The optional Depth Pro + road-segmentation extension is documented in
+[ai-calibration.md](ai-calibration.md), including model revisions, licensing, rejection
+criteria and local execution results. Its estimates remain physically unvalidated.
+
 ## Follow-up work requiring evidence
 
 1. Field validation: surveyed control points, held-out road distances, independently
@@ -58,8 +62,8 @@ Sources:
    synchronized timing before any turn/red-light classification. Do not infer these
    from speed changes. Near-miss/conflict analysis needs separate validated geometry
    and interaction models.
-5. Experimental metric depth only after scale anchoring, temporal validation and
-   comparison with the measured homography baseline; relative depth is not meters.
+5. Validate the experimental metric-depth path against scale anchors and the measured
+   homography baseline before relying on quantitative results; relative depth is not meters.
 6. Wall-clock alignment and repeat surveys across recordings with documented coverage,
    reviewed events and uncertainty. These would support investigation, not establish
    infrastructure causation or a funding case by themselves.

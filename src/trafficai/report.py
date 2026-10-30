@@ -35,7 +35,20 @@ within this run. Detection errors and ID switches can inflate counts or create f
             "Zero events in areas without valid speed coverage does not establish safety. "
             "Elapsed video time is not wall-clock time; recording date/time is unknown.</p>"
         )
+        if (metadata.get("calibration") or {}).get("method") == "ai_depth_plane":
+            out.write(
+                '<p class="notice"><strong>EXPERIMENTAL: AI-estimated scale — unvalidated.'
+                "</strong> Road scale and camera geometry were predicted, not surveyed. "
+                "Consistency checks do not establish physical accuracy. Speeds, acceleration "
+                "and candidate events must not be treated as validated measurements.</p>"
+            )
         out.write('<video controls preload="metadata" src="annotated.mp4"></video>')
+        if metadata.get("auto_calibration"):
+            out.write(
+                "<h2>AI calibration diagnostics</h2><pre>"
+                + esc(json.dumps(metadata["auto_calibration"], indent=2))
+                + "</pre>"
+            )
         out.write(
             "<h2>Coverage and measurement assumptions</h2><pre>"
             + esc(

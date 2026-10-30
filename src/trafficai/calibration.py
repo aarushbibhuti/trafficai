@@ -97,15 +97,25 @@ class Calibration:
             json.dump(asdict(self), handle, indent=2, allow_nan=False)
             handle.write("\n")
 
+    def metadata(self):
+        return asdict(self)
+
     @classmethod
     def load(cls, path):
         try:
-            return cls(**json.loads(Path(path).read_text()))
+            data = json.loads(Path(path).read_text())
+            if data.get("method") == "ai_depth_plane":
+                from .plane_calibration import PlaneCalibration
+
+                return PlaneCalibration(**data)
+            return cls(**data)
         except (TypeError, KeyError) as exc:
             raise ValueError(f"Invalid calibration schema: {exc}") from exc
 
 
 def draw_calibration(frame, calibration):
+    if hasattr(calibration, "draw"):
+        return calibration.draw(frame)
     preview = frame.copy()
     points = np.int32(calibration.source_points)
     cv2.polylines(preview, [points], True, (0, 255, 255), 2)

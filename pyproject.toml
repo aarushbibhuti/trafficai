@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "trafficai-vision"
-version = "0.2.0"
+version = "0.3.0"
 description = "Reviewable traffic tracking and calibrated candidate safety event analysis"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
@@ -20,6 +20,9 @@ dependencies = [
 
 [project.scripts]
 trafficai = "trafficai.cli:main"
+
+[project.optional-dependencies]
+ai = ["transformers>=4.57,<5", "huggingface-hub>=0.34,<1", "torch>=2.6,<3"]
 
 [dependency-groups]
 dev = ["pytest>=8,<10", "ruff>=0.11,<1"]

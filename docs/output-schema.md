@@ -29,7 +29,9 @@ Missing numeric values are empty CSV cells, never zero or fabricated values.
 
 Flags: `uncalibrated`, `outside_road_region`, `invalid_projection`, `short_history`,
 `reacquired`, `track_jump`, `observation_gap`, `gap_in_motion_window`,
-`noisy_motion`, `implausible_speed`, `acceleration_warmup`.
+`noisy_motion`, `implausible_speed`, `acceleration_warmup`. AI mode adds provenance
+flags `ai_scale_unvalidated` and `ai_geometry_unvalidated`. Unusable AI geometry adds
+`ai_calibration_rejected` or `ai_camera_view_unreliable`, which suppress metric values.
 Gaps can leave usable average speed while acceleration/events are unavailable. Invalid
 projection, excessive gap, jump or excessive residual starts a fresh motion segment.
 Histories are limited to configured time windows and at most 512 samples each;
@@ -54,7 +56,8 @@ JSON array (empty for no candidates). Each event contains:
   observation time associated with the peak derivative estimate. This is an approximate
   event location with smoothing lag, not a reconstructed exact onset position.
 - `zones`: containing configured polygons at that peak observation position.
-- `quality_flags`: `smoothed_estimate`, `manual_calibration` plus termination reason
+- `quality_flags`: `smoothed_estimate` and `manual_calibration` (or the two AI provenance
+  flags) plus termination reason
   (`hysteresis_release`, `observation_gap`, `interrupted_measurement`, `track_expired`,
   `completed`, `limited`, `cancelled`, `failed`). A terminal boundary may truncate an event.
 - `clip`: null when disabled/unavailable; otherwise relative `path`, actual source
@@ -105,3 +108,10 @@ The static HTML report links annotated H.264 MP4, individual clips, source refer
 `scene.jpg`, machine-readable files and an image-space event grid. Image-space cell
 areas are not equal road areas. Audio is omitted. Full-resolution video is retained;
 odd-sized frames use H.264 yuv444p, which some browsers cannot play (use a video player).
+
+## Experimental AI calibration extension
+
+See [ai-calibration.md](ai-calibration.md) for calibration schema 2, compressed mask and
+reference-image fields, model metadata, acceptance/rejection diagnostics and runtime
+view invalidation. Accepted AI scale remains unvalidated in every output. Schema 1
+manual calibration is unchanged. Runs without AI do not load optional dependencies.
