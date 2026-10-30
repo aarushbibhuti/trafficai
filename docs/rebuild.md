@@ -2,7 +2,8 @@
 
 Inspected 2026-10-29 after fetching origin. Clean starting working tree; ignored local
 videos and weights preserved. Rebuild branch: `codex/trafficai-rebuild`, based on
-`origin/main` e06bba4. No merge into main.
+`origin/main` e06bba4. The branch was subsequently renamed to
+`revamp/trafficai-rebuild` before publication. No merge into main.
 
 ## Existing behavior and confirmed defects
 
