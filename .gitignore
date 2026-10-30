@@ -17,3 +17,8 @@ data
 
 # Misc
 .DS_Store
+# Rebuild outputs and tool caches
+runs/
+.pytest_cache/
+.ruff_cache/
+.coverage

@@ -1,11 +1,41 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
 [project]
 name = "trafficai-vision"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.3.0"
+description = "Reviewable traffic tracking and calibrated candidate safety event analysis"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.12,<3.13"
 dependencies = [
-    "lapx>=0.9.4",
-    "opencv-python-headless>=4.13.0.92",
-    "ultralytics>=8.4.67",
+  "av>=16,<20",
+  "numpy>=2,<3",
+  "opencv-python>=4.11,<5",
+  "ultralytics>=8.4.67,<9",
+  "lap>=0.5.12,<0.6",
+  "pyyaml>=6,<7",
+  "torch>=2.4,<3",
 ]
+
+[project.scripts]
+trafficai = "trafficai.cli:main"
+
+[project.optional-dependencies]
+ai = ["transformers>=4.57,<5", "huggingface-hub>=0.34,<1", "torch>=2.6,<3"]
+
+[dependency-groups]
+dev = ["pytest>=8,<10", "ruff>=0.11,<1"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/trafficai"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
