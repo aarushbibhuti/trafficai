@@ -78,7 +78,8 @@ this integration fixture validate arithmetic and plumbing, not real detector acc
 - CPU and MPS execution were tested; CUDA hardware was unavailable.
 - Headless calibration was tested. Interactive click/undo/preview GUI workflows were
   not exercised manually; they require an available graphical session.
-- Linux CI was added but has not run remotely; Windows installation was not tested.
+- Linux GitHub Actions checks subsequently passed; see the remote CI record below.
+  Windows installation was not tested.
 - Model auto-download was not exercised because compatible local weights existed.
 - Memory is structurally bounded for frames and histories; SQLite stores cumulative
   counts/events on disk. The locked ByteTrack implementation bounds removed-track
@@ -102,7 +103,7 @@ this integration fixture validate arithmetic and plumbing, not real detector acc
   unavailable models retaining tracking, and provenance through measurements/events.
 - Ruff, format, lock consistency, dependency consistency, wheel/sdist build and diff
   whitespace checks passed. CI includes an optional-model API import check without
-  downloading weights. Remote CI has not been executed.
+  downloading weights. Remote Linux CI also passed; see the linked record below.
 - Actual Depth Pro and SegFormer weights downloaded successfully (1.904 GB + 14.96 MB).
   MPS inference completed on the Apple M5/16 GB machine, including three samples
   at 0, 1 and 2 seconds and the complete 376-frame trafficshort.mp4 analysis.
@@ -141,3 +142,12 @@ uv run trafficai analyze data/videos/trafficshort.mp4 \
 
 For the standalone calibration command, choose another output name if that file
 already exists. Model caches, footage, calibration outputs and runs remain outside Git.
+
+## Remote CI
+
+[GitHub Actions run 41082869033](https://github.com/aarushbibhuti/trafficai/actions/runs/41082869033)
+passed for commit `3343a99` on Ubuntu with Python 3.12. The checks included locked
+installation, Ruff lint and formatting, the test suite, wheel/source distribution
+builds, CLI help, and optional AI model API imports. The AI import check does not
+download model weights or validate real inference; the MPS runs above provide that
+execution evidence. Physical measurement accuracy remains unvalidated.

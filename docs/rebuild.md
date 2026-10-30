@@ -1,9 +1,9 @@
 # Repository audit and rebuild design
 
-Inspected 2026-10-29 after fetching origin. Clean starting working tree; ignored local
-videos and weights preserved. Rebuild branch: `codex/trafficai-rebuild`, based on
-`origin/main` e06bba4. The branch was subsequently renamed to
-`revamp/trafficai-rebuild` before publication. No merge into main.
+The original repository was inspected on 2026-10-29 after fetching origin. The working
+tree was clean; ignored local videos and weights were preserved. The rebuild was
+developed on an isolated branch based on `origin/main` e06bba4. This document records
+the starting behavior and the architecture that replaced it.
 
 ## Existing behavior and confirmed defects
 

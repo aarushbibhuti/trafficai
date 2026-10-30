@@ -18,14 +18,13 @@ Red-light, prohibited-turn and conflict analysis remain unavailable.
 Supported and tested Python: **3.12**. Use [uv](https://docs.astral.sh/uv/getting-started/installation/):
 
 ```bash
-git clone --branch revamp/trafficai-rebuild https://github.com/aarushbibhuti/trafficai.git
+git clone https://github.com/aarushbibhuti/trafficai.git
 cd trafficai
 uv sync --locked --python 3.12
 uv run trafficai --help
 ```
 
-The rebuild is on `revamp/trafficai-rebuild`, separate from `main`. In an existing
-checkout containing these changes, start with `uv sync`. Standard installation is
+In an existing checkout containing these changes, start with `uv sync`. Standard installation is
 also supported with `python3.12 -m pip install .`; uv's lock gives reproducible versions.
 On minimal Debian/Ubuntu, install `libgl1 libglib2.0-0` for the OpenCV wheel. CPU works
 without a GPU; use a compatible PyTorch installation for CUDA. Model inference adds
